@@ -8,7 +8,23 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sakura.css/css/sakura.css">
 </head>
 <body>
+    <nav>
+        {% if user.is_authenticated %}
+            <span>Welcome, {{ user.username }}!</span>
+            <a hx-get="{% url 'logout' %}" hx-target="body" hx-swap="outerHTML">Logout</a>
+        {% else %}
+            <a hx-get="{% url 'login' %}" hx-target="body" hx-swap="outerHTML">Login</a>
+            <a hx-get="{% url 'signup' %}" hx-target="body" hx-swap="outerHTML">Sign Up</a>
+        {% endif %}
+    </nav>
     <main>
+        {% if messages %}
+            <ul>
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
         <h1>LLM Stock Prediction MVP</h1>
         {% block content %}{% endblock %}
     </main>
