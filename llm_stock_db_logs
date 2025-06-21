@@ -1,9 +1,0 @@
-2025-06-21 22:55:50.985 +08 [518] LOG:  starting PostgreSQL 14.15 (Homebrew) on aarch64-apple-darwin24.1.0, compiled by Apple clang version 16.0.0 (clang-1600.0.26.4), 64-bit
-2025-06-21 22:55:50.989 +08 [518] LOG:  listening on IPv4 address "127.0.0.1", port 5432
-2025-06-21 22:55:50.989 +08 [518] LOG:  listening on IPv6 address "::1", port 5432
-2025-06-21 22:55:50.989 +08 [518] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
-2025-06-21 22:55:50.993 +08 [519] LOG:  database system was shut down at 2025-06-21 22:54:54 +08
-2025-06-21 22:55:50.996 +08 [518] LOG:  database system is ready to accept connections
-2025-06-21 22:56:26.558 +08 [1111] FATAL:  role "postgres" does not exist
-2025-06-21 22:58:41.695 +08 [1682] FATAL:  database "khalid" does not exist
-2025-06-21 22:58:52.188 +08 [1809] FATAL:  database "llm_stock_db" does not exist
