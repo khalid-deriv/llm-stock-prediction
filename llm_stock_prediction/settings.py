@@ -53,8 +53,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "llm_stock_db",
-        "USER": "postgres",
-        "PASSWORD": "postgres",
+        "USER": "...",
+        "PASSWORD": "...",
         "HOST": "localhost",
         "PORT": "5432",
     }
