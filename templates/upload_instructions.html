@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Upload Instructions (instructions.md)</h2>
+<form method="post" enctype="multipart/form-data" hx-post="{% url 'upload_instructions' %}" hx-target="body" hx-swap="outerHTML">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Upload instructions.md</button>
+</form>
+<p>
+    Or <a href="{% url 'download_sample_instructions' %}">download sample instructions.md</a>.
+    {% if user.is_authenticated %}
+        | <a href="{% url 'download_uploaded_instructions' %}">Download your uploaded instructions.md</a>
+    {% endif %}
+</p>
+{% endblock %}

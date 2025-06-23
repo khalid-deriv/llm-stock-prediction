@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Upload Stock Data CSV</h2>
+<form method="post" enctype="multipart/form-data" hx-post="{% url 'upload_csv' %}" hx-target="body" hx-swap="outerHTML">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Upload CSV</button>
+</form>
+<p>
+    Or <a href="{% url 'download_sample_csv' %}">download sample CSV</a>.
+    {% if user.is_authenticated %}
+        | <a href="{% url 'download_uploaded_csv' %}">Download your uploaded CSV</a>
+    {% endif %}
+</p>
+{% endblock %}
