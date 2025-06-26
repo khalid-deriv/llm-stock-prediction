@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>
+    {% if is_user %}
+        Your Uploaded Instructions (instructions.md)
+    {% else %}
+        Default Instructions (sample_instructions.md)
+    {% endif %}
+</h2>
+<pre style="white-space: pre-wrap; background: #f8f8f8; padding: 1em; border-radius: 6px;">{{ instructions_md }}</pre>
+{% if user.is_authenticated and not is_user %}
+    <p><em>You have not uploaded your own instructions.md yet.</em></p>
+{% endif %}
+{% endblock %}

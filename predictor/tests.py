@@ -55,3 +55,26 @@ class FileUploadTests(TestCase):
         response = self.client.get(reverse("download_uploaded_instructions"))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Do something smart.", response.content)
+
+class InstructionsDisplayTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="mduser", password="testpass1234")
+        self.client.login(username="mduser", password="testpass1234")
+
+    def test_view_default_instructions(self):
+        self.client.logout()
+        response = self.client.get(reverse("view_instructions"))
+        self.assertContains(response, "Default Instructions")
+        self.assertContains(response, "# Sample Instructions")
+
+    def test_view_uploaded_instructions(self):
+        # Upload instructions.md
+        md_content = b"# My Custom Instructions\nDo something unique."
+        self.client.post(
+            reverse("upload_instructions"),
+            {"instructions_file": SimpleUploadedFile("instructions.md", md_content)},
+            follow=True,
+        )
+        response = self.client.get(reverse("view_instructions"))
+        self.assertContains(response, "Your Uploaded Instructions")
+        self.assertContains(response, "Do something unique.")

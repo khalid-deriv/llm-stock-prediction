@@ -4,6 +4,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib import messages
 from django.http import HttpResponse, FileResponse, Http404
 from django.views.decorators.http import require_POST
+from django.conf import settings
 import os
 from .forms import UploadCSVForm, UploadInstructionsForm
 
@@ -116,3 +117,20 @@ def download_uploaded_instructions(request):
     if not os.path.exists(file_path):
         raise Http404("No uploaded instructions found.")
     return FileResponse(open(file_path, "rb"), as_attachment=True, filename="instructions.md")
+
+def view_instructions(request):
+    """
+    Display instructions.md: user's uploaded file if present, else default sample.
+    """
+    if request.user.is_authenticated:
+        user_dir = ensure_user_dir(request.user)
+        user_md = os.path.join(user_dir, "instructions.md")
+        if os.path.exists(user_md):
+            with open(user_md, "r", encoding="utf-8") as f:
+                content = f.read()
+            return render(request, "view_instructions.html", {"instructions_md": content, "is_user": True})
+    # fallback to default sample
+    sample_path = os.path.join(settings.BASE_DIR, "samples", "sample_instructions.md")
+    with open(sample_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    return render(request, "view_instructions.html", {"instructions_md": content, "is_user": False})
