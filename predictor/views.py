@@ -9,8 +9,8 @@ import os
 from .forms import UploadCSVForm, UploadInstructionsForm
 
 # Langchain imports
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
+from langchain.prompts import ChatPromptTemplate
+from langchain_community.chat_models import ChatOpenAI  # Default, but can be swapped for any supported LLM
 
 import csv
 import io
@@ -43,11 +43,13 @@ def build_persona_prompt(user_instructions: str = None):
 
 def get_llm():
     """
-    Return a Langchain ChatOpenAI instance using the API key from env.
+    Return a Langchain chat model instance using the API key from env.
+    Uses OpenAI by default, but can be swapped for any supported LLM.
     """
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY environment variable not set")
+    # You can swap ChatOpenAI for any other langchain.chat_models class as needed
     return ChatOpenAI(api_key=api_key)
 
 def call_llm_with_prompt(prompt: str, csv_data: str):
@@ -56,7 +58,6 @@ def call_llm_with_prompt(prompt: str, csv_data: str):
     Returns the LLM's response.
     """
     llm = get_llm()
-    # Compose the message for the LLM
     chat_prompt = ChatPromptTemplate.from_messages([
         ("system", prompt),
         ("user", f"Here is the stock data CSV:\n\n{csv_data}\n\nPlease provide your predictions as specified.")

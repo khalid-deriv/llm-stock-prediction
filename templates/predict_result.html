@@ -3,27 +3,83 @@
 <h2>Prediction Results</h2>
 {% if error %}
     <div style="color: red;">{{ error }}</div>
+{% elif not valid_csv %}
+    <div style="color: red;">Prediction CSV not found or invalid.</div>
 {% else %}
-    {% if table_html %}
-        <h3>Top 10 Predictions</h3>
-        {{ table_html|safe }}
-    {% endif %}
-    {% if explanations %}
-        <h3>Explanations</h3>
-        <pre style="white-space: pre-wrap; background: #f8f8f8; padding: 1em; border-radius: 6px;">{{ explanations }}</pre>
-    {% endif %}
-    {% if valid_csv %}
-        <h3>Prediction CSV</h3>
-        <form method="post" action="" hx-post="{% url 'predict' %}" hx-target="body" hx-swap="outerHTML">
-            <button type="submit">Re-run Prediction</button>
-        </form>
-        <a href="data:text/csv;charset=utf-8,{{ prediction_csv|urlencode }}" download="prediction.csv">Download prediction.csv</a>
-        <details>
-            <summary>Show CSV Preview</summary>
-            <pre style="white-space: pre-wrap; background: #f8f8f8; padding: 1em; border-radius: 6px;">{{ prediction_csv }}</pre>
-        </details>
-    {% else %}
-        <div style="color: orange;">Prediction CSV not found or invalid.</div>
-    {% endif %}
+    <a href="data:text/csv;charset=utf-8,{{ prediction_csv|urlencode }}" download="prediction.csv">Download prediction.csv</a>
+    <h3>Top 10 Predictions</h3>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>Month</th>
+                <th>Predicted Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {# Only show top 10*12 = 120 rows (skip header) #}
+            {% for row in csv_rows|slice:"1:121" %}
+                <tr>
+                    <td>{{ row.0 }}</td>
+                    <td>{{ row.1 }}</td>
+                    <td>{{ row.2 }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <h3>Explanations</h3>
+    <div>
+        {{ explanations|linebreaksbr }}
+    </div>
+    <h3>Combined Line Chart (Top 10 Stocks, 12 Months)</h3>
+    <canvas id="predictionChart" width="800" height="400"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    // Parse CSV rows into JS data
+    const csvRows = [
+        {% for row in csv_rows|slice:"1:121" %}
+            ["{{ row.0 }}", "{{ row.1 }}", parseFloat("{{ row.2 }}")],
+        {% endfor %}
+    ];
+    // Group by symbol
+    const symbolMap = {};
+    csvRows.forEach(([symbol, month, price]) => {
+        if (!symbolMap[symbol]) symbolMap[symbol] = [];
+        symbolMap[symbol].push({month, price});
+    });
+    // Get sorted months (assume all symbols have same months)
+    const months = [...new Set(csvRows.map(r => r[1]))];
+    // Prepare datasets for Chart.js
+    const colors = [
+        "#3366cc","#dc3912","#ff9900","#109618","#990099","#0099c6","#dd4477","#66aa00","#b82e2e","#316395"
+    ];
+    const datasets = Object.keys(symbolMap).slice(0,10).map((symbol, i) => ({
+        label: symbol,
+        data: months.map(m => {
+            const found = symbolMap[symbol].find(x => x.month === m);
+            return found ? found.price : null;
+        }),
+        borderColor: colors[i % colors.length],
+        fill: false,
+        tension: 0.1,
+    }));
+    new Chart(document.getElementById('predictionChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: datasets,
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'top' },
+                title: { display: true, text: 'Predicted Prices for Top 10 Stocks (12 Months)' }
+            },
+            scales: {
+                y: { beginAtZero: false }
+            }
+        }
+    });
+    </script>
 {% endif %}
 {% endblock %}

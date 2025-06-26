@@ -3,9 +3,9 @@
 <h2>Run Stock Prediction</h2>
 <form method="post" hx-post="{% url 'predict' %}" hx-target="body" hx-swap="outerHTML">
     {% csrf_token %}
-    <button type="submit">Predict using current CSV and instructions.md</button>
+    <button type="submit">Predict</button>
 </form>
-<p>
+{% endblock %}
     The prediction will use your uploaded files if present, otherwise the sample data and instructions.
 </p>
 {% endblock %}
