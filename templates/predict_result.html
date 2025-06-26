@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Prediction Results</h2>
+{% if error %}
+    <div style="color: red;">{{ error }}</div>
+{% else %}
+    {% if table_html %}
+        <h3>Top 10 Predictions</h3>
+        {{ table_html|safe }}
+    {% endif %}
+    {% if explanations %}
+        <h3>Explanations</h3>
+        <pre style="white-space: pre-wrap; background: #f8f8f8; padding: 1em; border-radius: 6px;">{{ explanations }}</pre>
+    {% endif %}
+    {% if valid_csv %}
+        <h3>Prediction CSV</h3>
+        <form method="post" action="" hx-post="{% url 'predict' %}" hx-target="body" hx-swap="outerHTML">
+            <button type="submit">Re-run Prediction</button>
+        </form>
+        <a href="data:text/csv;charset=utf-8,{{ prediction_csv|urlencode }}" download="prediction.csv">Download prediction.csv</a>
+        <details>
+            <summary>Show CSV Preview</summary>
+            <pre style="white-space: pre-wrap; background: #f8f8f8; padding: 1em; border-radius: 6px;">{{ prediction_csv }}</pre>
+        </details>
+    {% else %}
+        <div style="color: orange;">Prediction CSV not found or invalid.</div>
+    {% endif %}
+{% endif %}
+{% endblock %}

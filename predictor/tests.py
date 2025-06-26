@@ -2,6 +2,12 @@ from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
+import os
+import importlib
+from unittest.mock import patch
+
+from predictor import views as predictor_views
 
 class AuthFlowTests(TestCase):
     def test_signup_login_logout(self):
@@ -78,3 +84,65 @@ class InstructionsDisplayTests(TestCase):
         response = self.client.get(reverse("view_instructions"))
         self.assertContains(response, "Your Uploaded Instructions")
         self.assertContains(response, "Do something unique.")
+
+class PersonaPromptTests(TestCase):
+    def test_build_persona_prompt_default(self):
+        prompt = predictor_views.build_persona_prompt()
+        self.assertIn("The Oracle", prompt)
+        self.assertIn("stock market analyst", prompt)
+        self.assertNotIn("User Instructions:", prompt)
+
+    def test_build_persona_prompt_with_user_instructions(self):
+        user_md = "Analyze only AAPL and MSFT."
+        prompt = predictor_views.build_persona_prompt(user_md)
+        self.assertIn("User Instructions:", prompt)
+        self.assertIn(user_md, prompt)
+
+class LLMApiKeyConfigTests(TestCase):
+    def test_get_llm_raises_without_api_key(self):
+        # Remove API key if present
+        if "OPENAI_API_KEY" in os.environ:
+            del os.environ["OPENAI_API_KEY"]
+        importlib.reload(predictor_views)
+        with self.assertRaises(RuntimeError):
+            predictor_views.get_llm()
+
+    def test_get_llm_succeeds_with_api_key(self):
+        os.environ["OPENAI_API_KEY"] = "sk-test"
+        llm = predictor_views.get_llm()
+        # Should be a ChatOpenAI instance
+        from langchain_openai import ChatOpenAI
+        self.assertIsInstance(llm, ChatOpenAI)
+
+class PredictionWorkflowTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="preduser", password="testpass1234")
+        self.client.login(username="preduser", password="testpass1234")
+
+    @patch("predictor.views.call_llm_with_prompt")
+    def test_predict_view_with_valid_llm_output(self, mock_llm):
+        # Simulate LLM output with CSV, table, explanations
+        llm_output = (
+            "```csv\nsymbol,month,predicted_price\nAAPL,2024-07,200\nAAPL,2024-08,210\n```\n"
+            "<table><tr><td>AAPL</td><td>200</td></tr></table>\n"
+            "Explanations: AAPL is predicted to rise due to strong fundamentals."
+        )
+        mock_llm.return_value = llm_output
+        response = self.client.post(reverse("predict"))
+        self.assertContains(response, "Prediction Results")
+        self.assertContains(response, "AAPL")
+        self.assertContains(response, "Download prediction.csv")
+        self.assertContains(response, "Explanations")
+        self.assertContains(response, "AAPL is predicted to rise")
+
+    @patch("predictor.views.call_llm_with_prompt")
+    def test_predict_view_with_invalid_llm_output(self, mock_llm):
+        mock_llm.return_value = "No CSV here."
+        response = self.client.post(reverse("predict"))
+        self.assertContains(response, "Prediction CSV not found or invalid.")
+
+    @patch("predictor.views.call_llm_with_prompt")
+    def test_predict_view_llm_exception(self, mock_llm):
+        mock_llm.side_effect = RuntimeError("LLM error")
+        response = self.client.post(reverse("predict"))
+        self.assertContains(response, "LLM call failed")

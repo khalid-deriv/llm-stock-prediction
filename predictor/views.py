@@ -8,7 +8,61 @@ from django.conf import settings
 import os
 from .forms import UploadCSVForm, UploadInstructionsForm
 
+# Langchain imports
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+import csv
+import io
+import re
+
+from django.views.decorators.csrf import csrf_exempt
+
 UPLOAD_DIR = "/tmp/llm_stock_uploads"
+
+# Persona prompt as per spec
+PERSONA_PROMPT = """
+You are “The Oracle,” a world-class stock market analyst with a reputation for uncanny accuracy and deep insight. Your tone is confident, concise, and professional, but approachable. You analyze data with scientific rigor, explain your reasoning clearly, and always back up your predictions with evidence from the data. You avoid hype and speculation, focusing on actionable, data-driven insights. When presenting predictions, you rank them by expected profitability and explain the logic behind each one in plain language.
+
+Use state of the art analysis techniques. Take into consideration:
+- Technical analysis
+- Fundamental analysis
+- Geopolitical analysis
+- News analysis
+
+Use any data you have access to. The `data.csv` input file is a set of Stock data for an x amount of years. Use that as a baseline. Then use whatever data you have access to about current news events, geopolitical understanding, and the best fundamental & technical analysis expertise you have.
+"""
+
+def build_persona_prompt(user_instructions: str = None):
+    """
+    Build the full LLM prompt using the persona and user instructions.
+    """
+    if user_instructions:
+        return f"{PERSONA_PROMPT}\n\nUser Instructions:\n{user_instructions.strip()}"
+    return PERSONA_PROMPT
+
+def get_llm():
+    """
+    Return a Langchain ChatOpenAI instance using the API key from env.
+    """
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY environment variable not set")
+    return ChatOpenAI(api_key=api_key)
+
+def call_llm_with_prompt(prompt: str, csv_data: str):
+    """
+    Call the LLM with the constructed prompt and CSV data.
+    Returns the LLM's response.
+    """
+    llm = get_llm()
+    # Compose the message for the LLM
+    chat_prompt = ChatPromptTemplate.from_messages([
+        ("system", prompt),
+        ("user", f"Here is the stock data CSV:\n\n{csv_data}\n\nPlease provide your predictions as specified.")
+    ])
+    response = llm.invoke(chat_prompt)
+    return response.content
 
 def ensure_user_dir(user):
     user_dir = os.path.join(UPLOAD_DIR, str(user.id))
@@ -134,3 +188,86 @@ def view_instructions(request):
     with open(sample_path, "r", encoding="utf-8") as f:
         content = f.read()
     return render(request, "view_instructions.html", {"instructions_md": content, "is_user": False})
+
+def get_user_csv_and_instructions(request):
+    """
+    Returns (csv_data:str, instructions_md:str, is_user_csv:bool, is_user_md:bool)
+    """
+    # CSV
+    user_csv = None
+    user_md = None
+    is_user_csv = False
+    is_user_md = False
+    if request.user.is_authenticated:
+        user_dir = ensure_user_dir(request.user)
+        csv_path = os.path.join(user_dir, "data.csv")
+        md_path = os.path.join(user_dir, "instructions.md")
+        if os.path.exists(csv_path):
+            with open(csv_path, "r", encoding="utf-8") as f:
+                user_csv = f.read()
+            is_user_csv = True
+        if os.path.exists(md_path):
+            with open(md_path, "r", encoding="utf-8") as f:
+                user_md = f.read()
+            is_user_md = True
+    if not user_csv:
+        # fallback to sample
+        sample_csv = os.path.join(settings.BASE_DIR, "samples", "sample_data.csv")
+        with open(sample_csv, "r", encoding="utf-8") as f:
+            user_csv = f.read()
+    if not user_md:
+        sample_md = os.path.join(settings.BASE_DIR, "samples", "sample_instructions.md")
+        with open(sample_md, "r", encoding="utf-8") as f:
+            user_md = f.read()
+    return user_csv, user_md, is_user_csv, is_user_md
+
+def parse_llm_output(llm_output):
+    """
+    Parse LLM output into (prediction_csv:str, table_html:str, explanations:str)
+    Expects LLM to output in a markdown-like format:
+    ```csv
+    symbol,month,predicted_price
+    ...
+    ```
+    <table>...</table>
+    Explanations: ...
+    """
+    # Extract CSV block
+    csv_match = re.search(r"```csv\s*(.*?)```", llm_output, re.DOTALL)
+    prediction_csv = csv_match.group(1).strip() if csv_match else ""
+    # Extract HTML table (if any)
+    table_match = re.search(r"(<table.*?>.*?</table>)", llm_output, re.DOTALL)
+    table_html = table_match.group(1) if table_match else ""
+    # Extract explanations (after "Explanation" or "Explanations")
+    expl_match = re.search(r"Explanation[s]?:\s*(.*)", llm_output, re.DOTALL | re.IGNORECASE)
+    explanations = expl_match.group(1).strip() if expl_match else ""
+    return prediction_csv, table_html, explanations
+
+@csrf_exempt
+def predict_view(request):
+    """
+    View to trigger prediction using LLM.
+    """
+    if request.method == "POST":
+        csv_data, instructions_md, is_user_csv, is_user_md = get_user_csv_and_instructions(request)
+        prompt = build_persona_prompt(instructions_md)
+        try:
+            llm_output = call_llm_with_prompt(prompt, csv_data)
+        except Exception as e:
+            return render(request, "predict_result.html", {
+                "error": f"LLM call failed: {e}"
+            })
+        prediction_csv, table_html, explanations = parse_llm_output(llm_output)
+        # Validate prediction_csv: should have 120 rows (header + 119)
+        csv_rows = [row for row in csv.reader(io.StringIO(prediction_csv)) if row]
+        valid_csv = len(csv_rows) >= 2 and len(csv_rows) <= 121  # header + up to 120 rows
+        return render(request, "predict_result.html", {
+            "prediction_csv": prediction_csv,
+            "table_html": table_html,
+            "explanations": explanations,
+            "valid_csv": valid_csv,
+            "csv_rows": csv_rows,
+            "error": None,
+        })
+    # GET: show a simple form to trigger prediction
+    return render(request, "predict_form.html")

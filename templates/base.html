@@ -15,6 +15,7 @@
             <a hx-get="{% url 'upload_csv' %}" hx-target="body" hx-swap="outerHTML">Upload CSV</a>
             <a hx-get="{% url 'upload_instructions' %}" hx-target="body" hx-swap="outerHTML">Upload Instructions</a>
             <a hx-get="{% url 'view_instructions' %}" hx-target="body" hx-swap="outerHTML">View Instructions</a>
+            <a hx-get="{% url 'predict' %}" hx-target="body" hx-swap="outerHTML">Predict</a>
         {% else %}
             <a hx-get="{% url 'login' %}" hx-target="body" hx-swap="outerHTML">Login</a>
             <a hx-get="{% url 'signup' %}" hx-target="body" hx-swap="outerHTML">Sign Up</a>
