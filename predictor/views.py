@@ -10,7 +10,7 @@ from .forms import UploadCSVForm, UploadInstructionsForm
 
 # Langchain imports
 from langchain.prompts import ChatPromptTemplate
-from langchain_community.chat_models import ChatOpenAI  # Default, but can be swapped for any supported LLM
+from langchain_openai import ChatOpenAI  # Default, but can be swapped for any supported LLM
 
 import csv
 import io
@@ -62,7 +62,8 @@ def call_llm_with_prompt(prompt: str, csv_data: str):
         ("system", prompt),
         ("user", f"Here is the stock data CSV:\n\n{csv_data}\n\nPlease provide your predictions as specified.")
     ])
-    response = llm.invoke(chat_prompt)
+    messages = chat_prompt.format_messages()
+    response = llm.invoke(messages)
     return response.content
 
 def ensure_user_dir(user):
@@ -271,4 +272,5 @@ def predict_view(request):
             "error": None,
         })
     # GET: show a simple form to trigger prediction
+    return render(request, "predict_form.html")
     return render(request, "predict_form.html")
